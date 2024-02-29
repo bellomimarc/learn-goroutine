@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"math"
 	"os"
 	"strconv"
 	"sync"
@@ -9,23 +10,26 @@ import (
 )
 
 type WorkerDTO struct {
-	depth  int
-	parent int
+	depth  int64
+	parent int64
 }
 
 func main() {
 	timeStart := time.Now()
-	var c = make(chan WorkerDTO, 10)
+	depth := getDepth()
+	leafs := int64(5)
+	numOfWorkers := 5000
+	var c = make(chan WorkerDTO, int64(math.Pow(float64(leafs), float64(depth))))
 	wg := sync.WaitGroup{}
 	defer func() {
 		wg.Wait()
-		defer close(c)
+		close(c)
 		timeElapsed := time.Since(timeStart)
 		println("Elapsed time in ms:", timeElapsed.Milliseconds())
 	}()
 
-	depth := getDepth()
-	numOfWorkers := 5
+	wg.Add(1)
+	c <- WorkerDTO{depth: depth, parent: 0}
 
 	for i := 0; i < numOfWorkers; i++ {
 		go func(workId int) {
@@ -35,7 +39,7 @@ func main() {
 					continue
 				}
 
-				for i := 0; i < 5; i++ {
+				for i := int64(0); i < leafs; i++ {
 					time.Sleep(5 * time.Millisecond)
 
 					fmt.Printf("Worker %d, parent %d, depth %d\n", workId, dto.parent, depth-dto.depth+1)
@@ -48,15 +52,12 @@ func main() {
 			}
 		}(i)
 	}
-
-	wg.Add(1)
-	c <- WorkerDTO{depth: depth, parent: 0}
 }
 
-func getDepth() int {
-	depth := 1
+func getDepth() int64 {
+	depth := int64(1)
 	if len(os.Args) > 1 {
-		i, err := strconv.Atoi(os.Args[1])
+		i, err := strconv.ParseInt(os.Args[1], 10, 64)
 		if err != nil {
 			panic(err)
 		}
